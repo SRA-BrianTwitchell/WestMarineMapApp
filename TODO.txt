@@ -1,0 +1,2 @@
+Make it possible to upload more than one CSV file (like marina locations)
+make it so if the AI runs into a too many requests (like not enough procing power at google) it automaticly reruns and doesn't throw and error for the user

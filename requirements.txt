@@ -1,0 +1,6 @@
+streamlit
+pandas
+folium
+branca
+scipy
+weasyprint
