@@ -1,7 +1,6 @@
 streamlit
 pandas
 folium
-streamlit_folium
 branca
 scipy
 weasyprint
