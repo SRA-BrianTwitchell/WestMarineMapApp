@@ -1,2 +1,3 @@
 Make it possible to upload more than one CSV file (like marina locations)
-make it so if the AI runs into a too many requests (like not enough procing power at google) it automaticly reruns and doesn't throw and error for the user
+have a prompt that looks through a CSV and figures out what each collumn does to then tell the AI so it can better use the data
+Create interactive UI elements in the map

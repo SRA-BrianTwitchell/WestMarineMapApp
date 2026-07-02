@@ -9,6 +9,7 @@ from streamlit_folium import st_folium
 from google import genai
 from google.genai import types
 import re
+import scipy
 
 # ==========================================
 # 1. PAGE CONFIGURATION
@@ -31,7 +32,6 @@ if 'authenticated' not in st.session_state:
     st.session_state.authenticated = False
 
 if not st.session_state.authenticated:
-    # Use 3 columns to keep the login box centered and normal-sized
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         st.title("🔒 Access Restricted")
@@ -42,19 +42,31 @@ if not st.session_state.authenticated:
                 st.rerun()
             else:
                 st.error("Incorrect password.")
-    # Halt execution entirely until authenticated
     st.stop()
 
 # ==========================================
 # 3. SCREEN 2: THE MAIN DASHBOARD
 # ==========================================
-# (Everything below this line only runs if authenticated)
 
 # --- Custom CSS Injection (Clean & Native) ---
 st.markdown("""
 <style>
   [data-testid="stHeader"] { display: none !important; }
   .block-container { padding-top: 2rem !important; max-width: 98% !important; padding-bottom: 1rem !important; }
+  
+  /* HOTFIX 2: Chat Text Wrapping */
+  div[data-testid="stChatMessageContent"], div[data-testid="stChatMessageContent"] p {
+      white-space: pre-wrap !important;
+      word-wrap: break-word !important;
+      overflow-wrap: break-word !important;
+  }
+
+  /* HOTFIX 4: Force st.chat_input to sit inline at the top instead of pinning to the bottom */
+  [data-testid="stChatInput"] {
+      position: static !important;
+      padding-bottom: 15px !important;
+      background-color: transparent !important;
+  }
 </style>
 """, unsafe_allow_html=True)
 
@@ -78,7 +90,7 @@ if 'active_prompt' not in st.session_state:
 if 'filtered_df' not in st.session_state:
     st.session_state.filtered_df = None
 
-# Updated default code block to match new System Prompt architecture
+# HOTFIX 1: Bulletproof Legend & Header colors (background-color: #ffffff !important; color: #0f172a !important;)
 baseline_code = """
 def generate_custom_map(df):
     import folium
@@ -165,14 +177,12 @@ def generate_custom_map(df):
             ).add_to(custom_map)
             
     # --- LEGEND BUILDER ---
-    # 1. Build the styled inner rows
     legend_html_items = ""
     for label, color in legend_dict.items():
         legend_html_items += f'<div style="display: flex; align-items: center; margin-bottom: 6px;"><span style="background-color: {color}; border-radius: 50%; width: 12px; height: 12px; display: inline-block; margin-right: 8px; border: 1px solid #cbd5e1; flex-shrink: 0;"></span><span style="color: #0f172a !important; font-size: 13px; font-family: system-ui, sans-serif; font-weight: 600;">{label}</span></div>'
     
-    # 2. Combine into the final HTML string
     full_legend_html = f'''
-    <div style="background-color: rgba(255, 255, 255, 0.95) !important; padding: 12px 16px; border-radius: 8px; box-shadow: 0 4px 14px rgba(0,0,0,0.18); border: 1px solid #e2e8f0; min-width: 130px;">
+    <div style="background-color: #ffffff !important; color: #0f172a !important; padding: 12px 16px; border-radius: 8px; box-shadow: 0 4px 14px rgba(0,0,0,0.18); border: 1px solid #e2e8f0; min-width: 130px;">
         <h4 style="margin: 0 0 10px 0; font-weight: 700; font-size: 14px; color: #0f172a !important; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px; font-family: system-ui, sans-serif;">Map Legend</h4>
         {legend_html_items}
     </div>
@@ -195,10 +205,10 @@ def generate_custom_map(df):
     custom_map.add_child(legend_macro)
     
     # --- TITLE BOX BUILDER ---
-    map_blurb = "West Marine: Full Store Network" # AI will dynamically update this
+    map_blurb = "West Marine: Full Store Network" 
     
     blurb_html = f'''
-    <div style="background-color: rgba(255, 255, 255, 0.95) !important; padding: 12px 16px; border-radius: 8px; box-shadow: 0 4px 14px rgba(0,0,0,0.18); border: 1px solid #e2e8f0; max-width: 350px;">
+    <div style="background-color: #ffffff !important; color: #0f172a !important; padding: 12px 16px; border-radius: 8px; box-shadow: 0 4px 14px rgba(0,0,0,0.18); border: 1px solid #e2e8f0; max-width: 350px;">
         <h4 style="margin: 0; font-weight: 700; font-size: 14px; color: #0f172a !important; font-family: system-ui, sans-serif;">{map_blurb}</h4>
     </div>
     '''
@@ -226,14 +236,6 @@ def generate_custom_map(df):
 if 'last_code' not in st.session_state:
     st.session_state.last_code = baseline_code.strip()
 
-# --- Callback Function for Chat Input ---
-def handle_submit():
-    if st.session_state.prompt_input:
-        # Move the text to a processing variable
-        st.session_state.active_prompt = st.session_state.prompt_input
-        # Clear the input box (Streamlit allows this inside callbacks)
-        st.session_state.prompt_input = ""
-
 # --- Data Upload Check ---
 if not uploaded_file:
     st.info("Please upload your West Marine CSV data in the top right to begin.")
@@ -244,15 +246,10 @@ if not uploaded_file:
 try:
     df = pd.read_csv(uploaded_file, skiprows=3)
     
-    # 1. The Data Sanitizer
-    # Replace newlines with spaces
     df.columns = df.columns.str.replace(r'\n', ' ', regex=True)
-    # Remove all special characters/punctuation (keeping only alphanumeric and spaces)
     df.columns = df.columns.str.replace(r'[^\w\s]', '', regex=True)
-    # Strip leading/trailing spaces, replace internal spaces with underscores, and force UPPERCASE
     df.columns = df.columns.str.strip().str.replace(r'\s+', '_', regex=True).str.upper()
 
-    # Apply formatting using the newly sanitized column names
     if 'FORMAT' in df.columns:
         df['TYPE'] = df['FORMAT'].astype(str).str.lower()
     if 'GROUP' in df.columns:
@@ -266,12 +263,10 @@ except Exception as e:
     st.error(f"Error processing the CSV file: {e}")
     st.stop()
 
-# Ensure the data table populates on the first load
 if st.session_state.get('filtered_df') is None:
     st.session_state.filtered_df = df
 
 def get_dataframe_summary(df):
-    """Generates a deep context summary of the dataframe for the AI."""
     summary_lines = []
     for col in df.columns:
         dtype = df[col].dtype
@@ -293,6 +288,7 @@ Assume folium, pandas, and streamlit as st are already imported. You have access
 
 VISUAL & STYLING RULES:
 - UNIFORM SIZING: By default, ALL nodes (Stores, Hubs, DCs) must have a radius=6. Do not change the size of nodes based on their type. Only change node sizes if the user explicitly asks you to scale them by a specific data metric.
+- DARK MODE BLEED PREVENTION: All legend and blurb HTML containers MUST include 'background-color: #ffffff !important;' and 'color: #0f172a !important;' inline CSS to override Streamlit iframe dark mode injections.
 - You must use these strict default styles unless the user explicitly asks for different colors/sizes:
   Open Store: #90ee90
   Open Hub: #006400
@@ -419,7 +415,7 @@ def generate_custom_map(df):
     
     # 2. Combine into the final HTML string
     full_legend_html = f'''
-    <div style="background-color: rgba(255, 255, 255, 0.95) !important; padding: 12px 16px; border-radius: 8px; box-shadow: 0 4px 14px rgba(0,0,0,0.18); border: 1px solid #e2e8f0; min-width: 130px;">
+    <div style="background-color: #ffffff !important; color: #0f172a !important; padding: 12px 16px; border-radius: 8px; box-shadow: 0 4px 14px rgba(0,0,0,0.18); border: 1px solid #e2e8f0; min-width: 130px;">
         <h4 style="margin: 0 0 10px 0; font-weight: 700; font-size: 14px; color: #0f172a !important; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px; font-family: system-ui, sans-serif;">Map Legend</h4>
         {legend_html_items}
     </div>
@@ -446,7 +442,7 @@ def generate_custom_map(df):
     map_blurb = "West Marine: Full Store Network" # AI will dynamically update this
     
     blurb_html = f'''
-    <div style="background-color: rgba(255, 255, 255, 0.95) !important; padding: 12px 16px; border-radius: 8px; box-shadow: 0 4px 14px rgba(0,0,0,0.18); border: 1px solid #e2e8f0; max-width: 350px;">
+    <div style="background-color: #ffffff !important; color: #0f172a !important; padding: 12px 16px; border-radius: 8px; box-shadow: 0 4px 14px rgba(0,0,0,0.18); border: 1px solid #e2e8f0; max-width: 350px;">
         <h4 style="margin: 0; font-weight: 700; font-size: 14px; color: #0f172a !important; font-family: system-ui, sans-serif;">{map_blurb}</h4>
     </div>
     '''
@@ -482,7 +478,6 @@ left_panel, right_panel = st.columns([1, 3])
 with left_panel:
     st.markdown("#### 🤖 AI Map Coder")
 
-    # State Management Buttons
     ctrl_col1, ctrl_col2 = st.columns(2)
     with ctrl_col1:
         if st.button("Undo Last Request", use_container_width=True, disabled=len(st.session_state.code_history) == 0):
@@ -501,125 +496,134 @@ with left_panel:
             
     st.markdown("---")
     
-    # Map Style UI
     map_style = st.selectbox(
         "Map Style", 
         ["OpenStreetMap", "CartoDB positron", "CartoDB dark_matter"], 
         key="map_style_selector"
     )
 
-    # 2. The Chat Input with Callback
-    st.text_input('Ask the AI to update the map...', key='prompt_input', on_change=handle_submit)
+    # HOTFIX 4: Native Streamlit chat_input with CSS hack un-pinning it from the bottom
+    prompt_input = st.chat_input('Ask the AI to update the map...')
+    if prompt_input:
+        st.session_state.active_prompt = prompt_input
 
-    # 3. The Scrollable Chat Box
     chat_container = st.container(height=950, border=True)
 
-    # 4. Rendering the History
+    # HOTFIX 3: Reverse Chat History (Newest on top) and Handle Active Processing
     with chat_container:
-        for msg in st.session_state.chat_history:
-            with st.chat_message(msg["role"]):
-                st.markdown(msg["content"])
-
-    if st.session_state.active_prompt:
-        user_prompt = st.session_state.active_prompt
-        st.session_state.chat_history.append({"role": "user", "content": user_prompt})
-        
-        with chat_container:
+        if st.session_state.active_prompt:
+            user_prompt = st.session_state.active_prompt
+            
+            # 1. Create a placeholder at the top for the active assistant processing
+            assistant_placeholder = st.empty()
+            
+            # 2. Render the user's new prompt right below the placeholder
             with st.chat_message("user"):
                 st.markdown(user_prompt)
             
-            with st.chat_message("assistant"):
-                with st.spinner("Writing and testing code..."):
-                    try:
-                        history_transcript = "\n".join([f"{m['role'].upper()}: {m['content']}" for m in st.session_state.chat_history[-6:]])
-                        
-                        # Build Deeper Dataset Context (Data Dictionary)
-                        data_dictionary = get_dataframe_summary(df)
-                        
-                        mega_prompt = f"""
-                        User Request: {user_prompt}
-
-                        --- DATA DICTIONARY ---
-                        {data_dictionary}
-                        
-                        --- RECENT CHAT HISTORY ---
-                        {history_transcript}
-                        
-                        --- CURRENT PYTHON CODE ---
-                        {st.session_state.last_code}
-                        
-                        --- INSTRUCTION ---
-                        Here is the current Python code powering the map. Modify this existing code to fulfill the user's newest request. 
-                        Only output the full, revised executable code for generate_custom_map(df).
-                        """
-                        
-                        max_retries = 3
-                        retry_delay = 2
-                        
-                        for attempt in range(max_retries):
-                            try:
-                                response = client.models.generate_content(
-                                    model='gemini-3.1-flash-lite',
-                                    contents=mega_prompt,
-                                    config=types.GenerateContentConfig(
-                                        system_instruction=system_instruction
-                                    )
-                                )
-                                break 
-                            except Exception as e:
-                                error_msg = str(e).lower()
-                                if any(keyword in error_msg for keyword in ["busy", "exhausted", "quota", "503", "429", "overloaded"]):
-                                    if attempt < max_retries - 1:
-                                        st.warning(f"AI server is busy. Retrying in {retry_delay} seconds... (Attempt {attempt + 1}/{max_retries})")
-                                        time.sleep(retry_delay)
-                                        retry_delay *= 2 # Exponential backoff
-                                    else:
-                                        st.error("The AI server is currently overloaded. Please try again in a few minutes.")
-                                        st.stop()
-                                else:
-                                    st.error(f"An unexpected error occurred: {e}")
-                                    st.stop()
-                        
-                        raw_code = response.text.strip()
-                        
-                        # SAFELY strip markdown without breaking the file parser
-                        md_fence = "`" * 3
-                        if raw_code.startswith(md_fence + "python"):
-                            raw_code = raw_code[9:]
-                        elif raw_code.startswith(md_fence):
-                            raw_code = raw_code[3:]
-                        if raw_code.endswith(md_fence):
-                            raw_code = raw_code[:-3]
+            # 3. Render previous history below the active interaction
+            for msg in reversed(st.session_state.chat_history):
+                with st.chat_message(msg["role"]):
+                    st.markdown(msg["content"])
+            
+            # 4. Process the API logic inside the top placeholder
+            with assistant_placeholder.container():
+                with st.chat_message("assistant"):
+                    with st.spinner("Writing and testing code..."):
+                        try:
+                            # Context uses the original chronological list order
+                            history_transcript = "\n".join([f"{m['role'].upper()}: {m['content']}" for m in st.session_state.chat_history[-6:]])
+                            data_dictionary = get_dataframe_summary(df)
                             
-                        new_code_candidate = raw_code.strip()
-                        
-                        test_namespace = {}
-                        exec(new_code_candidate, globals(), test_namespace)
-                        
-                        if 'generate_custom_map' not in test_namespace:
-                            raise ValueError("The AI failed to define the 'generate_custom_map(df)' function.")
-                        
-                        test_map = test_namespace['generate_custom_map'](df)
-                        
-                        # Store current active code in history before overwriting
-                        st.session_state.code_history.append(st.session_state.last_code)
-                        
-                        st.session_state.last_code = new_code_candidate
-                        success_msg = "Map updated successfully!"
-                        st.markdown(success_msg)
-                        st.session_state.chat_history.append({"role": "assistant", "content": success_msg})
-                        
-                        # Clear active prompt before rerun
-                        st.session_state.active_prompt = None
-                        st.rerun()
-                        
-                    except Exception as e:
-                        error_msg = f"Failed to execute AI code. Error: {e}\n\n*Falling back to previous map.*"
-                        st.error(error_msg)
-                        st.session_state.chat_history.append({"role": "assistant", "content": error_msg})
-                        
-                        # Clear active prompt on exception
-                        st.session_state.active_prompt = None
+                            mega_prompt = f"""
+                            User Request: {user_prompt}
+
+                            --- DATA DICTIONARY ---
+                            {data_dictionary}
+                            
+                            --- RECENT CHAT HISTORY ---
+                            {history_transcript}
+                            
+                            --- CURRENT PYTHON CODE ---
+                            {st.session_state.last_code}
+                            
+                            --- INSTRUCTION ---
+                            Here is the current Python code powering the map. Modify this existing code to fulfill the user's newest request. 
+                            Only output the full, revised executable code for generate_custom_map(df).
+                            """
+                            
+                            max_retries = 3
+                            retry_delay = 2
+                            
+                            for attempt in range(max_retries):
+                                try:
+                                    response = client.models.generate_content(
+                                        model='gemini-3.1-flash-lite',
+                                        contents=mega_prompt,
+                                        config=types.GenerateContentConfig(
+                                            system_instruction=system_instruction
+                                        )
+                                    )
+                                    break 
+                                except Exception as e:
+                                    error_msg = str(e).lower()
+                                    if any(keyword in error_msg for keyword in ["busy", "exhausted", "quota", "503", "429", "overloaded"]):
+                                        if attempt < max_retries - 1:
+                                            st.warning(f"AI server is busy. Retrying in {retry_delay} seconds... (Attempt {attempt + 1}/{max_retries})")
+                                            time.sleep(retry_delay)
+                                            retry_delay *= 2 
+                                        else:
+                                            raise Exception("The AI server is currently overloaded. Please try again in a few minutes.")
+                                    else:
+                                        raise Exception(f"An unexpected API error occurred: {e}")
+                            
+                            raw_code = response.text.strip()
+                            
+                            md_fence = "`" * 3
+                            if raw_code.startswith(md_fence + "python"):
+                                raw_code = raw_code[9:]
+                            elif raw_code.startswith(md_fence):
+                                raw_code = raw_code[3:]
+                            if raw_code.endswith(md_fence):
+                                raw_code = raw_code[:-3]
+                                
+                            new_code_candidate = raw_code.strip()
+                            
+                            test_namespace = {}
+                            exec(new_code_candidate, globals(), test_namespace)
+                            
+                            if 'generate_custom_map' not in test_namespace:
+                                raise ValueError("The AI failed to define the 'generate_custom_map(df)' function.")
+                            
+                            test_map = test_namespace['generate_custom_map'](df)
+                            
+                            st.session_state.code_history.append(st.session_state.last_code)
+                            st.session_state.last_code = new_code_candidate
+                            
+                            success_msg = "Map updated successfully!"
+                            
+                            # Append to actual chronological history list
+                            st.session_state.chat_history.append({"role": "user", "content": user_prompt})
+                            st.session_state.chat_history.append({"role": "assistant", "content": success_msg})
+                            
+                            st.session_state.active_prompt = None
+                            st.rerun()
+                            
+                        except Exception as e:
+                            error_msg = f"Failed to execute AI code. Error: {e}\n\n*Falling back to previous map.*"
+                            st.error(error_msg)
+                            
+                            st.session_state.chat_history.append({"role": "user", "content": user_prompt})
+                            st.session_state.chat_history.append({"role": "assistant", "content": error_msg})
+                            
+                            st.session_state.active_prompt = None
+                            time.sleep(1.5)
+                            st.rerun()
+        else:
+            # If no active prompt, just render history reversed
+            for msg in reversed(st.session_state.chat_history):
+                with st.chat_message(msg["role"]):
+                    st.markdown(msg["content"])
 
 # --- RIGHT PANEL: Map & Code Output ---
 with right_panel:
@@ -628,10 +632,8 @@ with right_panel:
         exec(st.session_state.last_code, globals(), execution_namespace)
         active_map = execution_namespace['generate_custom_map'](df)
         
-        # Render map taking up full column width
         st_folium(active_map, use_container_width=True, height=700)
         
-        # Get the HTML string from the Folium map object
         map_html = active_map.get_root().render()
 
         st.download_button(
