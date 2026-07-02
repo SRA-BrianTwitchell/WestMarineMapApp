@@ -2,13 +2,5 @@ streamlit
 pandas
 folium
 branca
-scipy
-weasyprint
-json
-time
-folium.plugins
-branca.element
-streamlit_folium 
-google
-google.genai 
-re
+streamlit-folium
+google-genai
