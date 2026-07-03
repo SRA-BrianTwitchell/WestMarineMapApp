@@ -322,13 +322,10 @@ DATA RULES (STRICT FILTERING & INLINE CASTING):
   Never do math directly on the raw column without safely casting it to numeric and handling NaNs.
 
 ADVANCED INTERACTIVITY & UI RULES:
-The AI has two distinct ways to add interactivity based on the user's specific phrasing. You MUST choose the correct one:
-
-1. STREAMLIT SIDEBAR (DATA FILTERING): If the user asks to "filter the data", "add dropdowns", or "add sliders", you are authorized to use Streamlit widgets exclusively in the sidebar (e.g., `st.sidebar.multiselect`). You must filter the Pandas dataframe based on these widget outputs BEFORE building the map.
 2. NATIVE LAYER CONTROL (VISUAL TOGGLING): If the user asks to "toggle layers", "group the map", or "add layer controls", you must use Folium's native grouping. Create groups (`group = folium.FeatureGroup(name="Layer Name")`), add markers to their respective groups, and add the groups to `custom_map`. 
 CRITICAL LAYER RULES:
-- You MUST explicitly set the position: `folium.LayerControl(position='bottomleft').add_to(custom_map)` at the end.
-- You MUST NEVER delete the `# --- LEGEND BUILDER ---` or `# --- TITLE BOX BUILDER ---`. The layer control is an ADDITION, not a replacement. Both the custom legend and the layer control must coexist on the map.
+- POSITION: You MUST explicitly set the position using `folium.LayerControl(position='bottomright').add_to(custom_map)` at the very end.
+- ANTI-DELETION LOCK: You are strictly forbidden from removing the `# --- LEGEND BUILDER ---` and `# --- TITLE BOX BUILDER ---` sections. The layer control is an ADDITION. The Legend, the Title Box, and the Layer Control MUST ALL seamlessly coexist on the final map.
 
 CRITICAL UI FIX FOR NATIVE LAYERS: You MUST style the native layer control to match the custom legend and title boxes. You must inject this exact CSS block into the map's header before returning the map to make the checkboxes beautiful:
   
@@ -366,6 +363,7 @@ style_html = '''<style>
 }
 </style>'''
 custom_map.get_root().header.add_child(folium.Element(style_html))
+
 - CLUSTERING: If and only if the user asks to cluster the data, use `from folium.plugins import MarkerCluster`. Initialize it via `marker_cluster = MarkerCluster().add_to(custom_map)`, and then add your CircleMarkers directly to `marker_cluster` instead of `custom_map`.
 
 CODE STRUCTURE MANDATE: You MUST define a nested helper function named build_popup_html(row) directly INSIDE your generate_custom_map(df) function. You are strictly required to include the mandatory fields (Store Name, Status, and SqFt) at the top of every single popup you generate, followed by an HTML horizontal rule <hr>. Your output must always follow this exact structure:

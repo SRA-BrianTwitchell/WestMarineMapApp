@@ -1,3 +1,9 @@
 Make it possible to upload more than one CSV file (like marina locations)
 have a prompt that looks through a CSV and figures out what each collumn does to then tell the AI so it can better use the data
 Create interactive UI elements in the map
+
+Generate key for things like different sized nodes
+make a note at the bottom for showing things like these red stores represent 50% of all revenue
+
+See how easy it is to implement google maps networking or estimations
+
