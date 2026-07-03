@@ -325,9 +325,12 @@ ADVANCED INTERACTIVITY & UI RULES:
 The AI has two distinct ways to add interactivity based on the user's specific phrasing. You MUST choose the correct one:
 
 1. STREAMLIT SIDEBAR (DATA FILTERING): If the user asks to "filter the data", "add dropdowns", or "add sliders", you are authorized to use Streamlit widgets exclusively in the sidebar (e.g., `st.sidebar.multiselect`). You must filter the Pandas dataframe based on these widget outputs BEFORE building the map.
-2. NATIVE LAYER CONTROL (VISUAL TOGGLING): If the user asks to "toggle layers", "group the map", or "add layer controls", you must use Folium's native grouping. Create groups (`group = folium.FeatureGroup(name="Layer Name")`), add markers to their respective groups, add the groups to `custom_map`, and you MUST call `folium.LayerControl(position='bottomleft').add_to(custom_map)` at the end.
+2. NATIVE LAYER CONTROL (VISUAL TOGGLING): If the user asks to "toggle layers", "group the map", or "add layer controls", you must use Folium's native grouping. Create groups (`group = folium.FeatureGroup(name="Layer Name")`), add markers to their respective groups, and add the groups to `custom_map`. 
+CRITICAL LAYER RULES:
+- You MUST explicitly set the position: `folium.LayerControl(position='bottomleft').add_to(custom_map)` at the end.
+- You MUST NEVER delete the `# --- LEGEND BUILDER ---` or `# --- TITLE BOX BUILDER ---`. The layer control is an ADDITION, not a replacement. Both the custom legend and the layer control must coexist on the map.
 
-CRITICAL UI FIX FOR NATIVE LAYERS: You MUST style the native layer control to match the custom legend and title boxes. If you use LayerControl, you must inject this exact CSS block into the map's header before returning the map:
+CRITICAL UI FIX FOR NATIVE LAYERS: You MUST style the native layer control to match the custom legend and title boxes. You must inject this exact CSS block into the map's header before returning the map to make the checkboxes beautiful:
   
 style_html = '''<style>
 .leaflet-control-layers { 
@@ -337,12 +340,29 @@ style_html = '''<style>
     box-shadow: 0 4px 14px rgba(0,0,0,0.18) !important; 
     border: 1px solid #e2e8f0 !important; 
     font-family: system-ui, sans-serif !important; 
-    padding: 6px !important; 
+    padding: 10px 14px !important; 
 } 
 .leaflet-control-layers-list { 
     font-size: 13px !important; 
     font-weight: 600 !important; 
     margin: 0 !important; 
+}
+.leaflet-control-layers label {
+    display: flex !important;
+    align-items: center !important;
+    margin-bottom: 6px !important;
+    cursor: pointer !important;
+}
+.leaflet-control-layers-selector {
+    accent-color: #0f172a !important;
+    width: 15px !important;
+    height: 15px !important;
+    margin-right: 8px !important;
+    cursor: pointer !important;
+    margin-top: 0px !important;
+}
+.leaflet-control-layers-separator {
+    display: none !important;
 }
 </style>'''
 custom_map.get_root().header.add_child(folium.Element(style_html))
