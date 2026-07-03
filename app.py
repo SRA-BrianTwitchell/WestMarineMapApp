@@ -322,6 +322,10 @@ DATA RULES (STRICT FILTERING & INLINE CASTING):
   Never do math directly on the raw column without safely casting it to numeric and handling NaNs.
 
 CODE STRUCTURE MANDATE: You MUST define a nested helper function named build_popup_html(row) directly INSIDE your generate_custom_map(df) function. You are strictly required to include the mandatory fields (Store Name, Status, and SqFt) at the top of every single popup you generate, followed by an HTML horizontal rule <hr>. Your output must always follow this exact structure:
+ADVANCED INTERACTIVITY & UI RULES:
+- NATIVE LAYER FILTERING: If the user asks to toggle specific layers on/off on the map, use Folium's native grouping. Create groups using `group = folium.FeatureGroup(name="Layer Name")`. Add your markers to the specific `group`, add the group to `custom_map`, and you MUST call `folium.LayerControl().add_to(custom_map)` at the very end before returning the map.
+- CLUSTERING: If the user asks to cluster the data, use `from folium.plugins import MarkerCluster`. Initialize it via `marker_cluster = MarkerCluster().add_to(custom_map)`, and then add your CircleMarkers directly to `marker_cluster` instead of `custom_map`.
+- SEARCH BAR: If the user asks for a search feature to find specific stores, use `from folium.plugins import Search`. Bind it to a FeatureGroup containing the store names.
 - MACRO TEMPLATE RULE: You MUST NEVER use an f-string (e.g., f\"\"\") for legend_template or title_template. Doing so will cause a Python "name 'this' is not defined" error because it misinterprets the {{ this._parent }} Jinja tag. You MUST use standard strings (\"\"\") and use .replace() to inject the HTML payloads, exactly as shown in your template.
 
 def generate_custom_map(df):
