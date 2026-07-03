@@ -288,49 +288,7 @@ Assume folium, pandas, and streamlit as st are already imported. You have access
 
 VISUAL & STYLING RULES:
 - UNIFORM SIZING: By default, ALL nodes (Stores, Hubs, DCs) must have a radius=6. Do not change the size of nodes based on their type. Only change node sizes if the user explicitly asks you to scale them by a specific data metric.
-- MASTER CSS STYLING (DARK MODE PREVENTION): Streamlit heavily injects dark mode into iframes. You MUST NOT rely on inline styles. Instead, you MUST inject this exact global CSS block into the map's header using `custom_map.get_root().header.add_child(folium.Element(style_html))` right before returning the map. This styles the Legend, Title, and Layer Controls perfectly:
-
-    style_html = '''<style>
-    /* Force all Leaflet Info Boxes (Legend & Title) to be White with Dark Text */
-    .info { 
-        background-color: #ffffff !important; 
-        color: #0f172a !important; 
-        border-radius: 8px !important; 
-        box-shadow: 0 4px 14px rgba(0,0,0,0.18) !important; 
-        border: 1px solid #e2e8f0 !important; 
-        padding: 12px 16px !important; 
-    }
-    /* Force all text elements INSIDE the boxes to be dark */
-    .info h4, .info span, .info div, .info b, .info * { 
-        color: #0f172a !important; 
-    }
-
-    /* Layer Control Styling */
-    .leaflet-control-layers { 
-        background-color: #ffffff !important; 
-        border-radius: 8px !important; 
-        box-shadow: 0 4px 14px rgba(0,0,0,0.18) !important; 
-        border: 1px solid #e2e8f0 !important; 
-        padding: 10px 14px !important; 
-    }
-    .leaflet-control-layers label, .leaflet-control-layers span {
-        color: #0f172a !important;
-        font-weight: 600 !important;
-        display: flex !important;
-        align-items: center !important;
-        margin-bottom: 4px !important;
-    }
-    .leaflet-control-layers-selector {
-        accent-color: #0f172a !important;
-        width: 15px !important;
-        height: 15px !important;
-        margin-right: 8px !important;
-    }
-    .leaflet-control-layers-separator, .leaflet-control-layers-base {
-        display: none !important;
-    }
-    </style>'''
-    
+- DARK MODE BLEED PREVENTION: All legend and blurb HTML containers MUST include 'background-color: #ffffff !important;' and 'color: #0f172a !important;' inline CSS to override Streamlit iframe dark mode injections.
 - You must use these strict default styles unless the user explicitly asks for different colors/sizes:
   Open Store: #90ee90
   Open Hub: #006400
